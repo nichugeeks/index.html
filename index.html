@@ -9,6 +9,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- CDN para jsPDF y html2canvas para la exportación a PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- CDN de Chart.js para el gráfico de barras -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -34,6 +39,7 @@
             border-radius: 0.5rem;
             font-weight: 600;
             transition: all 0.2s ease-in-out;
+            cursor: pointer;
         }
         .btn-primary {
             background-color: #3b82f6;
@@ -42,6 +48,13 @@
         .btn-primary:hover {
             background-color: #2563eb;
             box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+        .btn-secondary {
+            background-color: #e5e7eb;
+            color: #4b5563;
+        }
+        .btn-secondary:hover {
+            background-color: #d1d5db;
         }
         input, select, textarea {
             border: 1px solid #d1d5db;
@@ -113,202 +126,290 @@
                 width: 100%;
             }
         }
+        .pdf-content {
+            padding: 2rem;
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+        }
+        .pdf-content table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .pdf-content th, .pdf-content td {
+            border: 1px solid #e5e7eb;
+            padding: 0.5rem;
+            text-align: left;
+        }
+        .pdf-content th {
+            background-color: #f9fafb;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
 
     <div class="container mx-auto p-4 md:p-8">
         <header class="text-center mb-10">
-            <!-- Sección del título sin logo -->
             <div class="flex items-center justify-center mb-4">
                 <h1 class="text-4xl md:text-5xl font-bold text-gray-900">Gestión de Cuentas por Cobrar</h1>
             </div>
             <p class="text-lg text-gray-600">Un resumen detallado de tus facturas y cheques.</p>
         </header>
 
-        <!-- Sección de Carga Masiva -->
-        <section class="card mb-10">
-            <h2 class="text-2xl font-semibold mb-6 text-gray-900">Carga Masiva de Datos (desde Excel)</h2>
-            <div class="mb-4">
-                <label for="excel-data" class="text-sm font-medium text-gray-700 mb-2 block">Copia y pega aquí tus datos de Excel o Google Sheets:</label>
-                <textarea id="excel-data" rows="5" placeholder="Formato: Rut, Cliente, N° de Documento, Fecha de Emision, Fecha de Vencimiento, Monto, Tipo (factura/cheque), Estado (pendiente/cobrado)"></textarea>
-            </div>
-            <div class="flex justify-end">
-                <button id="btn-cargar-masivo" class="btn btn-primary">Cargar Datos</button>
-            </div>
-        </section>
-        
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
-            <!-- Sección de Ingreso de Cheques -->
-            <section class="card">
-                <h2 class="text-2xl font-semibold mb-6 text-gray-900">Ingresar Cheques</h2>
-                <form id="formulario-cheque" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Campo Cliente -->
-                    <div class="flex flex-col">
-                        <label for="cliente-cheque" class="text-sm font-medium text-gray-700 mb-1">Cliente</label>
-                        <input type="text" id="cliente-cheque" required placeholder="Nombre del cliente" class="px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-                     <!-- Campo RUT -->
-                    <div class="flex flex-col">
-                        <label for="rut-cheque" class="text-sm font-medium text-gray-700 mb-1">RUT</label>
-                        <input type="text" id="rut-cheque" placeholder="Ej. 12.345.678-9" class="px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-                    <!-- Campo Monto -->
-                    <div class="flex flex-col">
-                        <label for="monto-cheque" class="text-sm font-medium text-gray-700 mb-1">Monto ($)</label>
-                        <input type="number" id="monto-cheque" required min="0" step="1" placeholder="Ej. 500000" class="px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-                    <!-- Campo Fecha de Vencimiento -->
-                    <div class="flex flex-col">
-                        <label for="fecha-vencimiento-cheque" class="text-sm font-medium text-gray-700 mb-1">Fecha de Vencimiento</label>
-                        <input type="date" id="fecha-vencimiento-cheque" required class="px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-                    <div class="md:col-span-2 flex justify-end items-end">
-                        <button type="submit" class="btn btn-primary mt-4">Agregar Cheque</button>
-                    </div>
-                </form>
-            </section>
+        <!-- Botones para cambiar entre vistas -->
+        <div class="flex justify-center mb-8 space-x-4">
+            <button id="btn-show-ingreso" class="btn btn-primary">Ingreso de Datos</button>
+            <button id="btn-show-analisis" class="btn btn-secondary">Análisis y Reportes</button>
         </div>
 
-        <!-- Sección de Resumen Detallado -->
-        <section class="mb-10">
-            <h2 class="text-2xl font-semibold mb-6 text-gray-900">Resumen Ejecutivo</h2>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                <!-- Total Pendiente -->
-                <div class="card bg-yellow-500 text-white shadow-xl">
-                    <div class="text-sm font-bold opacity-80">Total Pendiente</div>
-                    <div id="total-pendiente" class="text-4xl font-extrabold mt-1"></div>
+        <!-- Vista de Ingreso de Datos (Visible por defecto) -->
+        <div id="view-ingreso">
+            <!-- Sección de Carga Masiva -->
+            <section class="card mb-10">
+                <h2 class="text-2xl font-semibold mb-6 text-gray-900">Carga Masiva de Datos (desde Excel)</h2>
+                <div class="mb-4">
+                    <label for="excel-data" class="text-sm font-medium text-gray-700 mb-2 block">Copia y pega aquí tus datos de Excel o Google Sheets:</label>
+                    <textarea id="excel-data" rows="5" placeholder="Formato: Rut, Cliente, N° de Documento, Fecha de Emision, Fecha de Vencimiento, Monto, Tipo (factura/cheque), Estado (pendiente/cobrado)"></textarea>
                 </div>
-                <!-- Total Cobrado -->
-                <div class="card bg-green-500 text-white shadow-xl">
-                    <div class="text-sm font-bold opacity-80">Total Cobrado</div>
-                    <div id="total-cobrado" class="text-4xl font-extrabold mt-1"></div>
+                <div class="flex justify-end">
+                    <button id="btn-cargar-masivo" class="btn btn-primary">Cargar Datos</button>
                 </div>
-                <!-- Porcentaje de Cobranza -->
-                <div class="card bg-blue-500 text-white shadow-xl">
-                    <div class="text-sm font-bold opacity-80">Porcentaje de Cobranza</div>
-                    <div id="porcentaje-cobranza" class="text-4xl font-extrabold mt-1"></div>
-                </div>
-            </div>
+            </section>
             
-            <h3 class="text-xl font-semibold mb-4 text-gray-900">Análisis por Antigüedad</h3>
-            <div class="card mb-8 p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 text-center">
-                <div class="flex flex-col items-center">
-                    <div class="font-bold text-lg text-gray-900">Vigente</div>
-                    <div id="monto-vigente" class="text-blue-500 font-semibold text-lg"></div>
-                </div>
-                <div class="flex flex-col items-center">
-                    <div class="font-bold text-lg text-gray-900">1-30 días</div>
-                    <div id="monto-1-30" class="text-green-500 font-semibold text-lg"></div>
-                </div>
-                <div class="flex flex-col items-center">
-                    <div class="font-bold text-lg text-gray-900">31-60 días</div>
-                    <div id="monto-31-60" class="text-yellow-500 font-semibold text-lg"></div>
-                </div>
-                <div class="flex flex-col items-center">
-                    <div class="font-bold text-lg text-gray-900">61-90 días</div>
-                    <div id="monto-61-90" class="text-orange-500 font-semibold text-lg"></div>
-                </div>
-                <div class="flex flex-col items-center">
-                    <div class="font-bold text-lg text-gray-900">Más de 90 días</div>
-                    <div id="monto-mas-90" class="text-red-500 font-semibold text-lg"></div>
-                </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+                <!-- Sección de Ingreso de Cheques -->
+                <section class="card">
+                    <h2 class="text-2xl font-semibold mb-6 text-gray-900">Ingresar Cheques</h2>
+                    <form id="formulario-cheque" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Campo Cliente -->
+                        <div class="flex flex-col">
+                            <label for="cliente-cheque" class="text-sm font-medium text-gray-700 mb-1">Cliente</label>
+                            <input type="text" id="cliente-cheque" required placeholder="Nombre del cliente" class="px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                         <!-- Campo RUT -->
+                        <div class="flex flex-col">
+                            <label for="rut-cheque" class="text-sm font-medium text-gray-700 mb-1">RUT</label>
+                            <input type="text" id="rut-cheque" placeholder="Ej. 12.345.678-9" class="px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <!-- Campo Monto -->
+                        <div class="flex flex-col">
+                            <label for="monto-cheque" class="text-sm font-medium text-gray-700 mb-1">Monto ($)</label>
+                            <input type="number" id="monto-cheque" required min="0" step="1" placeholder="Ej. 500000" class="px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <!-- Campo Fecha de Vencimiento -->
+                        <div class="flex flex-col">
+                            <label for="fecha-vencimiento-cheque" class="text-sm font-medium text-gray-700 mb-1">Fecha de Vencimiento</label>
+                            <input type="date" id="fecha-vencimiento-cheque" required class="px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="md:col-span-2 flex justify-end items-end">
+                            <button type="submit" class="btn btn-primary mt-4">Agregar Cheque</button>
+                        </div>
+                    </form>
+                </section>
             </div>
-        </section>
-
-        <!-- Nueva sección de Análisis por Año -->
-        <section class="card mb-10">
-            <h2 class="text-2xl font-semibold mb-6 text-gray-900">Análisis por Año</h2>
-            <table id="tabla-anual" class="min-w-full">
-                <thead class="rounded-table-top">
-                    <tr>
-                        <th class="py-3 px-6 rounded-tl-xl">Año</th>
-                        <th class="py-3 px-6">Total Facturado</th>
-                        <th class="py-3 px-6 rounded-tr-xl">Total Cobrado</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200">
-                    <!-- Filas se insertarán por JavaScript -->
-                </tbody>
-            </table>
-        </section>
-
-        <!-- Sección de Tablas de Detalle -->
-        <section class="mb-10">
-            <h2 class="text-2xl font-semibold mb-6 text-gray-900 flex justify-between items-center">
-                Detalle de Cuentas
-                <div class="flex items-center space-x-2">
-                    <label for="filtro-anio" class="text-sm font-medium text-gray-700">Filtrar por Año:</label>
-                    <select id="filtro-anio" class="px-2 py-1 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 w-28">
-                        <option value="todos">Todos</option>
-                    </select>
+        </div>
+        
+        <!-- Vista de Análisis y Reportes (Oculta por defecto) -->
+        <div id="view-analisis" class="hidden">
+            <!-- Sección de Resumen Detallado -->
+            <section class="mb-10">
+                <h2 class="text-2xl font-semibold mb-6 text-gray-900">Resumen Ejecutivo</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                    <!-- Total Pendiente -->
+                    <div class="card bg-yellow-500 text-white shadow-xl">
+                        <div class="text-sm font-bold opacity-80">Total Pendiente</div>
+                        <div id="total-pendiente" class="text-4xl font-extrabold mt-1"></div>
+                    </div>
+                    <!-- Total Cobrado -->
+                    <div class="card bg-green-500 text-white shadow-xl">
+                        <div class="text-sm font-bold opacity-80">Total Cobrado</div>
+                        <div id="total-cobrado" class="text-4xl font-extrabold mt-1"></div>
+                    </div>
+                    <!-- Porcentaje de Cobranza -->
+                    <div class="card bg-blue-500 text-white shadow-xl">
+                        <div class="text-sm font-bold opacity-80">Porcentaje de Cobranza</div>
+                        <div id="porcentaje-cobranza" class="text-4xl font-extrabold mt-1"></div>
+                    </div>
                 </div>
-            </h2>
-            
-            <!-- Tabla de Facturas Pendientes -->
-            <div class="mb-8 overflow-x-auto">
-                <h3 class="text-xl font-semibold mb-4 text-gray-900">Facturas Pendientes</h3>
-                <table id="tabla-pendiente" class="min-w-full">
-                    <thead class="rounded-table-top">
-                        <tr>
-                            <th class="py-3 px-6 rounded-tl-xl">Cliente</th>
-                            <th class="py-3 px-6">RUT</th>
-                            <th class="py-3 px-6">N° de Documento</th>
-                            <th class="py-3 px-6">Vencimiento</th>
-                            <th class="py-3 px-6">Días de Atraso</th>
-                            <th class="py-3 px-6">Monto</th>
-                            <th class="py-3 px-6">Seguimiento</th>
-                            <th class="py-3 px-6 rounded-tr-xl">Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200">
-                        <!-- Filas de datos se insertarán aquí por JavaScript -->
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Tabla de Cheques Pendientes -->
-            <div class="mb-8 overflow-x-auto">
-                <h3 class="text-xl font-semibold mb-4 text-gray-900">Cheques Pendientes</h3>
-                <table id="tabla-cheques-pendiente" class="min-w-full">
-                    <thead class="rounded-table-top">
-                        <tr>
-                            <th class="py-3 px-6 rounded-tl-xl">Cliente</th>
-                            <th class="py-3 px-6">RUT</th>
-                            <th class="py-3 px-6">N° de Documento</th>
-                            <th class="py-3 px-6">Vencimiento</th>
-                            <th class="py-3 px-6">Días de Atraso</th>
-                            <th class="py-3 px-6">Monto</th>
-                            <th class="py-3 px-6">Seguimiento</th>
-                            <th class="py-3 px-6 rounded-tr-xl">Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200">
-                        <!-- Filas de datos se insertarán aquí por JavaScript -->
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Tabla de Cuentas Cobradas -->
-            <div class="mb-8 overflow-x-auto">
-                <h3 class="text-xl font-semibold mb-4 text-gray-900">Cuentas Cobradas</h3>
-                <table id="tabla-cobrada" class="min-w-full">
-                    <thead class="rounded-table-top">
-                        <tr>
-                            <th class="py-3 px-6 rounded-tl-xl">Cliente</th>
-                            <th class="py-3 px-6">RUT</th>
-                            <th class="py-3 px-6">Tipo</th>
-                            <th class="py-3 px-6">N° de Documento</th>
-                            <th class="py-3 px-6">Fecha de Cobro</th>
-                            <th class="py-3 px-6 rounded-tr-xl">Monto</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200">
-                        <!-- Filas de datos se insertarán aquí por JavaScript -->
-                    </tbody>
-                </table>
-            </div>
-        </section>
+                
+                <h3 class="text-xl font-semibold mb-4 text-gray-900">Análisis por Antigüedad</h3>
+                <div class="card mb-8 p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 text-center">
+                    <div class="flex flex-col items-center">
+                        <div class="font-bold text-lg text-gray-900">Vigente</div>
+                        <div id="monto-vigente" class="text-blue-500 font-semibold text-lg"></div>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <div class="font-bold text-lg text-gray-900">1-30 días</div>
+                        <div id="monto-1-30" class="text-green-500 font-semibold text-lg"></div>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <div class="font-bold text-lg text-gray-900">31-60 días</div>
+                        <div id="monto-31-60" class="text-yellow-500 font-semibold text-lg"></div>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <div class="font-bold text-lg text-gray-900">61-90 días</div>
+                        <div id="monto-61-90" class="text-orange-500 font-semibold text-lg"></div>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <div class="font-bold text-lg text-gray-900">Más de 90 días</div>
+                        <div id="monto-mas-90" class="text-red-500 font-semibold text-lg"></div>
+                    </div>
+                </div>
+                <div class="card p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-gray-900">Distribución de la Deuda por Antigüedad</h3>
+                    <canvas id="antiguedad-chart"></canvas>
+                </div>
+            </section>
+    
+            <!-- Sección de Tablas de Detalle -->
+            <section class="mb-10" id="detalles-cuentas">
+                <h2 class="text-2xl font-semibold mb-6 text-gray-900 flex justify-between items-center">
+                    Detalle de Cuentas
+                </h2>
+                
+                <!-- Contenedor de filtros -->
+                <div class="flex flex-wrap items-center gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+                    <div class="flex items-center space-x-2 w-full sm:w-auto">
+                        <label for="filtro-cliente" class="text-sm font-medium text-gray-700 w-24">Cliente:</label>
+                        <input type="text" id="filtro-cliente" placeholder="Nombre del cliente" class="px-2 py-1 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 flex-grow">
+                    </div>
+                    <div class="flex items-center space-x-2 w-full sm:w-auto">
+                        <label for="filtro-morosidad" class="text-sm font-medium text-gray-700 w-24">Morosidad:</label>
+                        <select id="filtro-morosidad" class="px-2 py-1 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 flex-grow">
+                            <option value="todos">Todos</option>
+                            <option value="vigente">Vigente</option>
+                            <option value="1-30">1-30 días</option>
+                            <option value="31-60">31-60 días</option>
+                            <option value="61-90">61-90 días</option>
+                            <option value="mas-90">Más de 90 días</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center space-x-2 w-full sm:w-auto">
+                        <label for="filtro-mes" class="text-sm font-medium text-gray-700 w-24">Mes:</label>
+                        <select id="filtro-mes" class="px-2 py-1 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 flex-grow">
+                            <option value="0">Todos</option>
+                            <option value="1">Enero</option>
+                            <option value="2">Febrero</option>
+                            <option value="3">Marzo</option>
+                            <option value="4">Abril</option>
+                            <option value="5">Mayo</option>
+                            <option value="6">Junio</option>
+                            <option value="7">Julio</option>
+                            <option value="8">Agosto</option>
+                            <option value="9">Septiembre</option>
+                            <option value="10">Octubre</option>
+                            <option value="11">Noviembre</option>
+                            <option value="12">Diciembre</option>
+                        </select>
+                    </div>
+                     <div class="flex items-center space-x-2 w-full sm:w-auto">
+                        <label for="filtro-anio" class="text-sm font-medium text-gray-700 w-24">Año:</label>
+                        <select id="filtro-anio" class="px-2 py-1 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 flex-grow">
+                            <option value="todos">Todos</option>
+                        </select>
+                    </div>
+                </div>
+    
+                <!-- Tabla de Facturas Pendientes -->
+                <div class="mb-8 overflow-x-auto">
+                    <h3 class="text-xl font-semibold mb-4 text-gray-900">Facturas Pendientes</h3>
+                    <table id="tabla-pendiente" class="min-w-full">
+                        <thead class="rounded-table-top">
+                            <tr>
+                                <th class="py-3 px-6 rounded-tl-xl">Cliente</th>
+                                <th class="py-3 px-6">RUT</th>
+                                <th class="py-3 px-6">N° de Documento</th>
+                                <th class="py-3 px-6">Vencimiento</th>
+                                <th class="py-3 px-6">Monto</th>
+                                <th class="py-3 px-6">Fecha de Pago</th>
+                                <th class="py-3 px-6 rounded-tr-xl">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            <!-- Filas de datos se insertarán aquí por JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+    
+                <!-- Tabla de Cheques Pendientes -->
+                <div class="mb-8 overflow-x-auto">
+                    <h3 class="text-xl font-semibold mb-4 text-gray-900">Cheques Pendientes</h3>
+                    <table id="tabla-cheques-pendiente" class="min-w-full">
+                        <thead class="rounded-table-top">
+                            <tr>
+                                <th class="py-3 px-6 rounded-tl-xl">Cliente</th>
+                                <th class="py-3 px-6">RUT</th>
+                                <th class="py-3 px-6">N° de Documento</th>
+                                <th class="py-3 px-6">Vencimiento</th>
+                                <th class="py-3 px-6">Monto</th>
+                                <th class="py-3 px-6">Fecha de Pago</th>
+                                <th class="py-3 px-6 rounded-tr-xl">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            <!-- Filas de datos se insertarán aquí por JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Total de deuda filtrada -->
+                <div class="flex justify-end mt-4 mb-8">
+                    <div class="font-bold text-xl text-gray-900">
+                        Total adeudado: <span id="total-filtrado-adeudado" class="text-red-600"></span>
+                    </div>
+                </div>
+    
+                <div class="flex justify-center mb-8">
+                    <button id="btn-exportar-pdf" class="btn btn-primary">Exportar a PDF</button>
+                </div>
+    
+                <!-- Nueva sección de análisis de comportamiento de pago -->
+                <div class="card mb-8">
+                    <div id="analisis-comportamiento">
+                        <h2 class="text-2xl font-semibold mb-6 text-gray-900">Análisis de Comportamiento de Pago</h2>
+                        <div class="flex flex-col md:flex-row items-center gap-4 mb-4">
+                            <label for="filtro-cliente-analisis" class="text-sm font-medium text-gray-700 w-full md:w-auto">Selecciona un Cliente:</label>
+                            <select id="filtro-cliente-analisis" class="px-2 py-1 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-auto">
+                                <option value="">Seleccione un cliente</option>
+                            </select>
+                            <label for="filtro-anio-analisis" class="text-sm font-medium text-gray-700 w-full md:w-auto">Selecciona un Año:</label>
+                            <select id="filtro-anio-analisis" class="px-2 py-1 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-auto">
+                                <option value="todos">Todos los años</option>
+                            </select>
+                        </div>
+                        
+                        <div id="resultado-analisis" class="mt-4 p-4 border rounded-lg bg-gray-50 hidden">
+                            <p class="text-lg font-semibold text-gray-800" id="resumen-analisis"></p>
+                            <p class="text-sm text-gray-600 mt-2" id="detalle-analisis"></p>
+                        </div>
+    
+                        <div class="flex justify-end mt-6">
+                            <button id="btn-exportar-analisis-pdf" class="btn btn-primary hidden">Exportar Análisis a PDF</button>
+                        </div>
+                    </div>
+                </div>
+    
+                <!-- Tabla de Cuentas Cobradas -->
+                <div class="mb-8 overflow-x-auto">
+                    <h3 class="text-xl font-semibold mb-4 text-gray-900">Cuentas Cobradas</h3>
+                    <table id="tabla-cobrada" class="min-w-full">
+                        <thead class="rounded-table-top">
+                            <tr>
+                                <th class="py-3 px-6 rounded-tl-xl">Cliente</th>
+                                <th class="py-3 px-6">RUT</th>
+                                <th class="py-3 px-6">Tipo</th>
+                                <th class="py-3 px-6">N° de Documento</th>
+                                <th class="py-3 px-6">Fecha de Cobro</th>
+                                <th class="py-3 px-6 rounded-tr-xl">Monto</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            <!-- Filas de datos se insertarán aquí por JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
 
     </div>
 
@@ -321,15 +422,22 @@
         // Array para almacenar todas las cuentas (facturas y cheques)
         let cuentas = [];
         let aniosDisponibles = new Set();
+        let clientesDisponibles = new Set();
         let anioSeleccionado = 'todos';
+        let deudaChart; // Variable global para la instancia del gráfico
 
         // Referencias a los elementos del DOM
         const formularioCheque = document.getElementById('formulario-cheque');
         const tablaPendienteBody = document.querySelector('#tabla-pendiente tbody');
         const tablaChequesPendienteBody = document.querySelector('#tabla-cheques-pendiente tbody');
         const tablaCobradaBody = document.querySelector('#tabla-cobrada tbody');
-        const tablaAnualBody = document.querySelector('#tabla-anual tbody');
+        
+        // Elementos de filtro
+        const filtroClienteInput = document.getElementById('filtro-cliente');
+        const filtroMorosidadSelect = document.getElementById('filtro-morosidad');
+        const filtroMesSelect = document.getElementById('filtro-mes');
         const filtroAnioSelect = document.getElementById('filtro-anio');
+        const totalFiltradoAdeudadoSpan = document.getElementById('total-filtrado-adeudado');
 
         const totalPendienteSpan = document.getElementById('total-pendiente');
         const totalCobradoSpan = document.getElementById('total-cobrado');
@@ -343,9 +451,47 @@
 
         const btnCargarMasivo = document.getElementById('btn-cargar-masivo');
         const excelDataTextarea = document.getElementById('excel-data');
+        const btnExportarPdf = document.getElementById('btn-exportar-pdf');
 
         const messageModal = document.getElementById('message-modal');
         const messageText = document.getElementById('message-text');
+
+        // Referencias para la nueva sección de análisis de pago
+        const filtroClienteAnalisisSelect = document.getElementById('filtro-cliente-analisis');
+        const filtroAnioAnalisisSelect = document.getElementById('filtro-anio-analisis');
+        const resultadoAnalisisDiv = document.getElementById('resultado-analisis');
+        const resumenAnalisisP = document.getElementById('resumen-analisis');
+        const detalleAnalisisP = document.getElementById('detalle-analisis');
+        const btnExportarAnalisisPdf = document.getElementById('btn-exportar-analisis-pdf');
+        
+        // Referencias para las vistas
+        const viewIngreso = document.getElementById('view-ingreso');
+        const viewAnalisis = document.getElementById('view-analisis');
+        const btnShowIngreso = document.getElementById('btn-show-ingreso');
+        const btnShowAnalisis = document.getElementById('btn-show-analisis');
+        
+        // Función para cambiar de vista
+        function switchView(viewId) {
+            viewIngreso.classList.add('hidden');
+            viewAnalisis.classList.add('hidden');
+            document.getElementById(viewId).classList.remove('hidden');
+            
+            // Alternar los estilos de los botones para mostrar la vista activa
+            if (viewId === 'view-ingreso') {
+                btnShowIngreso.classList.replace('btn-secondary', 'btn-primary');
+                btnShowAnalisis.classList.replace('btn-primary', 'btn-secondary');
+            } else {
+                btnShowAnalisis.classList.replace('btn-secondary', 'btn-primary');
+                btnShowIngreso.classList.replace('btn-primary', 'btn-secondary');
+            }
+        }
+        
+        // Eventos para los botones de las vistas
+        btnShowIngreso.addEventListener('click', () => switchView('view-ingreso'));
+        btnShowAnalisis.addEventListener('click', () => {
+            renderizarDatos();
+            switchView('view-analisis');
+        });
 
         // Función para mostrar un mensaje al usuario
         function showMessage(text, isError = true) {
@@ -364,7 +510,7 @@
 
         // Función para formatear un número a CLP sin decimales y con separador de miles
         function formatNumberCLP(num) {
-            if (isNaN(num)) return '0';
+            if (isNaN(num)) return '$0';
             const roundedNum = Math.round(num);
             const formatter = new Intl.NumberFormat('es-CL', {
                 style: 'currency',
@@ -377,16 +523,25 @@
 
         // Función para parsear una fecha en varios formatos
         function parseDate(dateString) {
+            if (!dateString) return null;
             // Maneja el formato YYYY-MM-DD
-            if (dateString && dateString.includes('-')) {
-                return new Date(dateString);
+            if (dateString.includes('-')) {
+                return new Date(dateString + 'T00:00:00'); // Asegura que se parsea como UTC
             }
             // Maneja el formato DD/MM/YYYY
-            if (dateString && dateString.includes('/')) {
+            if (dateString.includes('/')) {
                 const parts = dateString.split('/');
                 return new Date(parts[2], parts[1] - 1, parts[0]);
             }
             return null;
+        }
+
+        // Función para calcular los días de atraso
+        function calcularDiasAtraso(vencimiento, fechaPago = new Date()) {
+            if (!vencimiento) return 0;
+            const hoy = new Date(fechaPago.getFullYear(), fechaPago.getMonth(), fechaPago.getDate());
+            const diffTime = hoy.getTime() - vencimiento.getTime();
+            return Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
         }
 
         // Evento para manejar el envío del formulario de cheques
@@ -461,25 +616,167 @@
             }
         });
 
-        // Evento para manejar los clics en las tablas de pendientes (delegación de eventos en un contenedor común)
-        const detalleContainer = document.querySelector('section.mb-10');
-        detalleContainer.addEventListener('click', (e) => {
-            if (e.target.classList.contains('btn-cobrado')) {
-                const cuentaId = e.target.getAttribute('data-id');
+        // Eventos para los filtros de las tablas
+        filtroClienteInput.addEventListener('input', renderizarDatos);
+        filtroMorosidadSelect.addEventListener('change', renderizarDatos);
+        filtroMesSelect.addEventListener('change', renderizarDatos);
+        filtroAnioSelect.addEventListener('change', renderizarDatos);
+        
+        // Eventos para el filtro de análisis
+        filtroClienteAnalisisSelect.addEventListener('change', actualizarAnalisis);
+        filtroAnioAnalisisSelect.addEventListener('change', actualizarAnalisis);
+
+        function actualizarAnalisis() {
+            const clienteSeleccionado = filtroClienteAnalisisSelect.value;
+            const anioSeleccionado = filtroAnioAnalisisSelect.value;
+            if (clienteSeleccionado) {
+                analizarComportamientoPago(clienteSeleccionado, anioSeleccionado);
+            } else {
+                resultadoAnalisisDiv.classList.add('hidden');
+                btnExportarAnalisisPdf.classList.add('hidden');
+            }
+        }
+
+        // Evento para manejar cambios en la fecha de pago
+        document.addEventListener('change', (e) => {
+            if (e.target.matches('.fecha-pago-input')) {
+                const cuentaId = e.target.dataset.id;
+                const fechaPago = e.target.value;
                 const cuentaIndex = cuentas.findIndex(c => c.id === cuentaId);
 
                 if (cuentaIndex !== -1) {
+                    cuentas[cuentaIndex].fechaCobro = fechaPago;
                     cuentas[cuentaIndex].estado = 'cobrado';
-                    cuentas[cuentaIndex].fechaCobro = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
                     renderizarDatos();
+                    const clienteSeleccionado = filtroClienteAnalisisSelect.value;
+                    const anioSeleccionado = filtroAnioAnalisisSelect.value;
+                    if (clienteSeleccionado && clienteSeleccionado === cuentas[cuentaIndex].cliente) {
+                        analizarComportamientoPago(clienteSeleccionado, anioSeleccionado);
+                    }
                 }
             }
         });
 
-        // Evento para el filtro por año
-        filtroAnioSelect.addEventListener('change', (e) => {
-            anioSeleccionado = e.target.value;
-            renderizarDatos();
+        // Evento para manejar el clic del botón de "Cobrado"
+        document.addEventListener('click', (e) => {
+            if (e.target.matches('.btn-cobrado')) {
+                const cuentaId = e.target.dataset.id;
+                const fechaInput = document.querySelector(`.fecha-pago-input[data-id="${cuentaId}"]`);
+                if (fechaInput) {
+                    const fechaPago = fechaInput.value;
+                    const cuentaIndex = cuentas.findIndex(c => c.id === cuentaId);
+                    if (cuentaIndex !== -1) {
+                        cuentas[cuentaIndex].fechaCobro = fechaPago || new Date().toISOString().slice(0, 10);
+                        cuentas[cuentaIndex].estado = 'cobrado';
+                        renderizarDatos();
+                        const clienteSeleccionado = filtroClienteAnalisisSelect.value;
+                        const anioSeleccionado = filtroAnioAnalisisSelect.value;
+                        if (clienteSeleccionado && clienteSeleccionado === cuentas[cuentaIndex].cliente) {
+                            analizarComportamientoPago(clienteSeleccionado, anioSeleccionado);
+                        }
+                    }
+                }
+            }
+        });
+
+        // Evento para exportar a PDF
+        btnExportarPdf.addEventListener('click', async () => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('p', 'pt', 'a4');
+            const table = document.getElementById('tabla-pendiente');
+            const table2 = document.getElementById('tabla-cheques-pendiente');
+            
+            if (!table || !table2) {
+                showMessage("Error: No se encontraron las tablas de facturas o cheques.", "error");
+                return;
+            }
+
+            // Crear una tabla temporal combinada sin las columnas de 'seguimiento' y 'acción'
+            const tempDiv = document.createElement('div');
+            tempDiv.className = 'pdf-content';
+            
+            const tempTable = document.createElement('table');
+            tempTable.innerHTML = `
+                <thead class="bg-gray-50 text-gray-700">
+                    <tr>
+                        <th class="py-3 px-4 uppercase font-semibold text-sm">Cliente</th>
+                        <th class="py-3 px-4 uppercase font-semibold text-sm">RUT</th>
+                        <th class="py-3 px-4 uppercase font-semibold text-sm">N° de Documento</th>
+                        <th class="py-3 px-4 uppercase font-semibold text-sm">Vencimiento</th>
+                        <th class="py-3 px-4 uppercase font-semibold text-sm">Monto</th>
+                        <th class="py-3 px-4 uppercase font-semibold text-sm">Fecha de Pago</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            `;
+            const tbody = tempTable.querySelector('tbody');
+
+            // Cargar datos de la tabla de facturas
+            const pendingInvoices = Array.from(table.querySelectorAll('tbody tr'));
+            pendingInvoices.forEach(row => {
+                const cells = Array.from(row.querySelectorAll('td'));
+                const newRow = document.createElement('tr');
+                newRow.innerHTML = `
+                    <td>${cells[0].textContent}</td>
+                    <td>${cells[1].textContent}</td>
+                    <td>${cells[2].textContent}</td>
+                    <td>${cells[3].textContent}</td>
+                    <td>${cells[4].textContent}</td>
+                    <td>${cells[5].querySelector('input').value}</td>
+                `;
+                tbody.appendChild(newRow);
+            });
+
+            // Cargar datos de la tabla de cheques
+            const pendingCheques = Array.from(table2.querySelectorAll('tbody tr'));
+            pendingCheques.forEach(row => {
+                const cells = Array.from(row.querySelectorAll('td'));
+                const newRow = document.createElement('tr');
+                newRow.innerHTML = `
+                    <td>${cells[0].textContent}</td>
+                    <td>${cells[1].textContent}</td>
+                    <td>${cells[2].textContent}</td>
+                    <td>${cells[3].textContent}</td>
+                    <td>${cells[4].textContent}</td>
+                    <td>${cells[5].querySelector('input').value}</td>
+                `;
+                tbody.appendChild(newRow);
+            });
+
+            tempDiv.appendChild(tempTable);
+            document.body.appendChild(tempDiv);
+            
+            await html2canvas(tempDiv, { scale: 2 }).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const imgProps = doc.getImageProperties(imgData);
+                const pdfWidth = doc.internal.pageSize.getWidth();
+                const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                doc.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                doc.save("reporte_cuentas_pendientes.pdf");
+                showMessage('Reporte PDF generado.', false);
+            });
+
+            document.body.removeChild(tempDiv);
+        });
+
+        // Evento para exportar el análisis a PDF
+        btnExportarAnalisisPdf.addEventListener('click', () => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('p', 'pt', 'a4');
+            const element = document.getElementById('analisis-comportamiento');
+
+            html2canvas(element, {
+                scale: 2
+            }).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const imgProps = doc.getImageProperties(imgData);
+                const pdfWidth = doc.internal.pageSize.getWidth();
+                const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+                doc.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                doc.save("reporte_analisis_cliente.pdf");
+                showMessage('Reporte de análisis PDF generado.', false);
+            });
         });
 
         // Función para agregar una nueva cuenta al array
@@ -492,10 +789,107 @@
                     aniosDisponibles.add(fecha.getFullYear());
                 }
             }
+            // Extraer cliente para el filtro de análisis
+            if (datos.cliente) {
+                clientesDisponibles.add(datos.cliente);
+            }
             renderizarDatos();
         }
 
-        // Función para renderizar los datos
+        // Función para analizar el comportamiento de pago de un cliente
+        function analizarComportamientoPago(cliente, anioSeleccionado) {
+            const pagosCliente = cuentas.filter(c => 
+                c.cliente === cliente && 
+                c.estado === 'cobrado' && 
+                c.fechaVencimiento && 
+                c.fechaCobro &&
+                (anioSeleccionado === 'todos' || new Date(c.fechaCobro).getFullYear() === parseInt(anioSeleccionado))
+            );
+            
+            if (pagosCliente.length === 0) {
+                resumenAnalisisP.textContent = `No hay facturas cobradas para ${cliente} en el año seleccionado.`;
+                detalleAnalisisP.textContent = '';
+                resultadoAnalisisDiv.classList.remove('hidden');
+                btnExportarAnalisisPdf.classList.add('hidden');
+                return;
+            }
+
+            let totalDias = 0;
+            pagosCliente.forEach(pago => {
+                const fechaVencimiento = parseDate(pago.fechaVencimiento);
+                const fechaCobro = parseDate(pago.fechaCobro);
+                const diffTime = fechaCobro.getTime() - fechaVencimiento.getTime();
+                totalDias += diffTime / (1000 * 60 * 60 * 24);
+            });
+
+            const promedioDias = totalDias / pagosCliente.length;
+            const diasRedondeados = Math.round(promedioDias);
+
+            let resumenTexto = '';
+            let detalleTexto = '';
+            if (diasRedondeados <= 0) {
+                resumenTexto = `${cliente} generalmente paga sus facturas a tiempo o incluso antes.`;
+                detalleTexto = `En promedio, paga ${Math.abs(diasRedondeados)} días antes de la fecha de vencimiento.`;
+            } else {
+                resumenTexto = `${cliente} tiende a retrasarse en sus pagos.`;
+                detalleTexto = `En promedio, se demora ${diasRedondeados} días en pagar después de la fecha de vencimiento.`;
+            }
+
+            resumenAnalisisP.textContent = resumenTexto;
+            detalleAnalisisP.textContent = detalleTexto;
+            resultadoAnalisisDiv.classList.remove('hidden');
+            btnExportarAnalisisPdf.classList.remove('hidden');
+        }
+
+        // Función para renderizar el gráfico de antigüedad
+        function renderizarGraficoAntiguedad(data) {
+            const ctx = document.getElementById('antiguedad-chart').getContext('2d');
+            
+            if (deudaChart) {
+                deudaChart.data.datasets[0].data = data;
+                deudaChart.update();
+            } else {
+                deudaChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Vigente', '1-30 días', '31-60 días', '61-90 días', 'Más de 90 días'],
+                        datasets: [{
+                            label: 'Monto adeudado',
+                            data: data,
+                            backgroundColor: [
+                                'rgba(59, 130, 246, 0.8)',
+                                'rgba(34, 197, 94, 0.8)',
+                                'rgba(251, 191, 36, 0.8)',
+                                'rgba(249, 115, 22, 0.8)',
+                                'rgba(239, 68, 68, 0.8)'
+                            ],
+                            borderColor: [
+                                'rgba(59, 130, 246, 1)',
+                                'rgba(34, 197, 94, 1)',
+                                'rgba(251, 191, 36, 1)',
+                                'rgba(249, 115, 22, 1)',
+                                'rgba(239, 68, 68, 1)'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Monto ($)'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Función principal para renderizar los datos
         function renderizarDatos() {
             tablaPendienteBody.innerHTML = '';
             tablaChequesPendienteBody.innerHTML = '';
@@ -503,17 +897,33 @@
             
             // Actualizar opciones del filtro de año
             filtroAnioSelect.innerHTML = '<option value="todos">Todos</option>';
+            filtroAnioAnalisisSelect.innerHTML = '<option value="todos">Todos los años</option>';
             Array.from(aniosDisponibles).sort().forEach(anio => {
                 const option = document.createElement('option');
                 option.value = anio;
                 option.textContent = anio;
                 filtroAnioSelect.appendChild(option);
-            });
-            filtroAnioSelect.value = anioSeleccionado;
 
-            let totalPendiente = 0;
+                const optionAnalisis = document.createElement('option');
+                optionAnalisis.value = anio;
+                optionAnalisis.textContent = anio;
+                filtroAnioAnalisisSelect.appendChild(optionAnalisis);
+            });
+
+            // Actualizar opciones del filtro de cliente para análisis
+            const clienteSeleccionadoAnalisis = filtroClienteAnalisisSelect.value;
+            filtroClienteAnalisisSelect.innerHTML = '<option value="">Seleccione un cliente</option>';
+            Array.from(clientesDisponibles).sort().forEach(cliente => {
+                const option = document.createElement('option');
+                option.value = cliente;
+                option.textContent = cliente;
+                filtroClienteAnalisisSelect.appendChild(option);
+            });
+            filtroClienteAnalisisSelect.value = clienteSeleccionadoAnalisis;
+            
             let totalCobrado = 0;
             let totalFacturado = 0;
+            let totalAdeudadoFiltrado = 0;
             
             let montoVigente = 0;
             let monto130 = 0;
@@ -521,122 +931,104 @@
             let monto6190 = 0;
             let montoMas90 = 0;
 
-            const totalesAnuales = {};
-
-            const hoy = new Date();
-            hoy.setHours(0,0,0,0);
-
+            // Recorrer todas las cuentas para calcular totales del resumen ejecutivo
             cuentas.forEach(cuenta => {
-                const fechaEmision = parseDate(cuenta.fechaEmision);
-                const anioFacturado = fechaEmision ? fechaEmision.getFullYear() : 'N/A';
-                
-                if (anioFacturado !== 'N/A') {
-                    if (!totalesAnuales[anioFacturado]) {
-                        totalesAnuales[anioFacturado] = { facturado: 0, cobrado: 0 };
-                    }
-                }
-                
-                if (cuenta.estado === 'pendiente') {
-                    if (anioFacturado !== 'N/A' && anioFacturado === parseInt(anioSeleccionado) || anioSeleccionado === 'todos') {
-                        totalPendiente += cuenta.monto;
-                    }
-                    if (anioFacturado !== 'N/A') {
-                        totalesAnuales[anioFacturado].facturado += cuenta.monto;
-                    }
-                    
-                    const vencimiento = parseDate(cuenta.fechaVencimiento);
-                    let diasAtraso = 0;
-                    if (vencimiento) {
-                        const diffTime = hoy.getTime() - vencimiento.getTime();
-                        diasAtraso = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
-                    }
-                    
-                    if (anioFacturado !== 'N/A' && anioFacturado === parseInt(anioSeleccionado) || anioSeleccionado === 'todos') {
-                        if (diasAtraso <= 0) {
-                            montoVigente += cuenta.monto;
-                        } else if (diasAtraso <= 30) {
-                            monto130 += cuenta.monto;
-                        } else if (diasAtraso <= 60) {
-                            monto3160 += cuenta.monto;
-                        } else if (diasAtraso <= 90) {
-                            monto6190 += cuenta.monto;
-                        } else {
-                            montoMas90 += cuenta.monto;
-                        }
-                        const row = document.createElement('tr');
-                        row.innerHTML = `
-                            <td class="py-3 px-6">${cuenta.cliente}</td>
-                            <td class="py-3 px-6">${cuenta.rut || 'N/A'}</td>
-                            <td class="py-3 px-6">${cuenta.nDocumento || 'N/A'}</td>
-                            <td class="py-3 px-6">${cuenta.fechaVencimiento}</td>
-                            <td class="py-3 px-6">${diasAtraso}</td>
-                            <td class="py-3 px-6">${formatNumberCLP(cuenta.monto)}</td>
-                            <td class="py-3 px-6">
-                                <textarea rows="1" class="w-full text-sm px-2 py-1 border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"></textarea>
-                            </td>
-                            <td class="py-3 px-6">
-                                <button class="btn btn-primary text-sm px-3 py-1 btn-cobrado" data-id="${cuenta.id}">Cobrado</button>
-                            </td>
-                        `;
-                        
-                        if (cuenta.tipo === 'factura') {
-                            tablaPendienteBody.appendChild(row);
-                        } else if (cuenta.tipo === 'cheque') {
-                            tablaChequesPendienteBody.appendChild(row);
-                        }
-                    }
-
-                } else if (cuenta.estado === 'cobrado') {
-                    if (anioFacturado !== 'N/A' && anioFacturado === parseInt(anioSeleccionado) || anioSeleccionado === 'todos') {
-                        totalCobrado += cuenta.monto;
-                    }
-
-                    const fechaCobro = parseDate(cuenta.fechaCobro);
-                    const anioCobrado = fechaCobro ? fechaCobro.getFullYear() : 'N/A';
-                    
-                    if (anioCobrado !== 'N/A') {
-                        if (!totalesAnuales[anioCobrado]) {
-                            totalesAnuales[anioCobrado] = { facturado: 0, cobrado: 0 };
-                        }
-                        totalesAnuales[anioCobrado].cobrado += cuenta.monto;
-                    }
-
-                    if (anioFacturado !== 'N/A' && anioFacturado === parseInt(anioSeleccionado) || anioSeleccionado === 'todos') {
-                        const row = document.createElement('tr');
-                        row.innerHTML = `
-                            <td class="py-3 px-6">${cuenta.cliente}</td>
-                            <td class="py-3 px-6">${cuenta.rut || 'N/A'}</td>
-                            <td class="py-3 px-6">${cuenta.tipo}</td>
-                            <td class="py-3 px-6">${cuenta.nDocumento}</td>
-                            <td class="py-3 px-6">${cuenta.fechaCobro}</td>
-                            <td class="py-3 px-6">${formatNumberCLP(cuenta.monto)}</td>
-                        `;
-                        tablaCobradaBody.appendChild(row);
-                    }
-                }
-                if (anioFacturado !== 'N/A') {
-                    if (!totalesAnuales[anioFacturado]) {
-                        totalesAnuales[anioFacturado] = { facturado: 0, cobrado: 0 };
-                    }
-                    totalFacturado += cuenta.monto;
+                totalFacturado += cuenta.monto;
+                if (cuenta.estado === 'cobrado') {
+                    totalCobrado += cuenta.monto;
                 }
             });
 
-            // Llenar la tabla de análisis por año
-            tablaAnualBody.innerHTML = '';
-            const sortedAnios = Object.keys(totalesAnuales).sort();
-            sortedAnios.forEach(anio => {
+            // Filtrar las cuentas
+            const cuentasFiltradas = cuentas.filter(cuenta => {
+                const fechaEmision = parseDate(cuenta.fechaEmision);
+                const anio = fechaEmision ? fechaEmision.getFullYear() : null;
+                const mes = fechaEmision ? fechaEmision.getMonth() + 1 : null;
+                const diasAtraso = cuenta.estado === 'pendiente' ? calcularDiasAtraso(parseDate(cuenta.fechaVencimiento)) : 0;
+
+                const filtroCliente = filtroClienteInput.value.toLowerCase().trim();
+                const filtroMorosidad = filtroMorosidadSelect.value;
+                const filtroMes = filtroMesSelect.value;
+                const filtroAnio = filtroAnioSelect.value;
+
+                // Aplicar filtros
+                const cumpleCliente = cuenta.cliente.toLowerCase().includes(filtroCliente);
+                const cumpleAnio = filtroAnio === 'todos' || anio === parseInt(filtroAnio);
+                const cumpleMes = filtroMes === '0' || mes === parseInt(filtroMes);
+                
+                let cumpleMorosidad = true;
+                if (cuenta.estado === 'pendiente' && filtroMorosidad !== 'todos') {
+                    if (filtroMorosidad === 'vigente') cumpleMorosidad = diasAtraso <= 0;
+                    if (filtroMorosidad === '1-30') cumpleMorosidad = diasAtraso > 0 && diasAtraso <= 30;
+                    if (filtroMorosidad === '31-60') cumpleMorosidad = diasAtraso > 30 && diasAtraso <= 60;
+                    if (filtroMorosidad === '61-90') cumpleMorosidad = diasAtraso > 60 && diasAtraso <= 90;
+                    if (filtroMorosidad === 'mas-90') cumpleMorosidad = diasAtraso > 90;
+                } else if (cuenta.estado === 'cobrado' && filtroMorosidad !== 'todos') {
+                    // Si el estado es cobrado, no cumple con ningún filtro de morosidad
+                    cumpleMorosidad = false;
+                }
+                
+                return cumpleCliente && cumpleAnio && cumpleMes && cumpleMorosidad;
+            });
+            
+            // Recorrer las cuentas filtradas para renderizar tablas y totalizar
+            cuentasFiltradas.forEach(cuenta => {
+                if (cuenta.estado === 'pendiente') {
+                    const diasAtraso = calcularDiasAtraso(parseDate(cuenta.fechaVencimiento));
+                    totalAdeudadoFiltrado += cuenta.monto;
+
+                    if (diasAtraso <= 0) {
+                        montoVigente += cuenta.monto;
+                    } else if (diasAtraso <= 30) {
+                        monto130 += cuenta.monto;
+                    } else if (diasAtraso <= 60) {
+                        monto3160 += cuenta.monto;
+                    } else if (diasAtraso <= 90) {
+                        monto6190 += cuenta.monto;
+                    } else {
+                        montoMas90 += cuenta.monto;
+                    }
+
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="py-3 px-6">${cuenta.cliente}</td>
+                        <td class="py-3 px-6">${cuenta.rut || 'N/A'}</td>
+                        <td class="py-3 px-6">${cuenta.nDocumento || 'N/A'}</td>
+                        <td class="py-3 px-6">${cuenta.fechaVencimiento}</td>
+                        <td class="py-3 px-6">${formatNumberCLP(cuenta.monto)}</td>
+                        <td class="py-3 px-6">
+                           <input type="date" class="fecha-pago-input px-2 py-1 border rounded-lg" data-id="${cuenta.id}">
+                        </td>
+                        <td class="py-3 px-6">
+                            <button class="btn btn-primary text-sm px-3 py-1 btn-cobrado" data-id="${cuenta.id}">Cobrado</button>
+                        </td>
+                    `;
+                    
+                    if (cuenta.tipo === 'factura') {
+                        tablaPendienteBody.appendChild(row);
+                    } else if (cuenta.tipo === 'cheque') {
+                        tablaChequesPendienteBody.appendChild(row);
+                    }
+                }
+            });
+
+            // Renderizar la tabla de cobrados sin filtros
+            cuentas.filter(c => c.estado === 'cobrado').forEach(cuenta => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td class="py-3 px-6">${anio}</td>
-                    <td class="py-3 px-6">${formatNumberCLP(totalesAnuales[anio].facturado)}</td>
-                    <td class="py-3 px-6">${formatNumberCLP(totalesAnuales[anio].cobrado)}</td>
+                    <td class="py-3 px-6">${cuenta.cliente}</td>
+                    <td class="py-3 px-6">${cuenta.rut || 'N/A'}</td>
+                    <td class="py-3 px-6">${cuenta.tipo}</td>
+                    <td class="py-3 px-6">${cuenta.nDocumento}</td>
+                    <td class="py-3 px-6">${cuenta.fechaCobro}</td>
+                    <td class="py-3 px-6">${formatNumberCLP(cuenta.monto)}</td>
                 `;
-                tablaAnualBody.appendChild(row);
+                tablaCobradaBody.appendChild(row);
             });
 
+
             // Actualizar resumen ejecutivo
-            totalPendienteSpan.textContent = formatNumberCLP(totalPendiente);
+            totalPendienteSpan.textContent = formatNumberCLP(cuentas.filter(c => c.estado === 'pendiente').reduce((sum, c) => sum + c.monto, 0));
             totalCobradoSpan.textContent = formatNumberCLP(totalCobrado);
             const porcentajeCobranza = totalFacturado > 0 ? (totalCobrado / totalFacturado) * 100 : 0;
             porcentajeCobranzaSpan.textContent = `${porcentajeCobranza.toFixed(2)}%`;
@@ -647,6 +1039,12 @@
             monto3160Span.textContent = formatNumberCLP(monto3160);
             monto6190Span.textContent = formatNumberCLP(monto6190);
             montoMas90Span.textContent = formatNumberCLP(montoMas90);
+            
+            // Actualizar el total filtrado
+            totalFiltradoAdeudadoSpan.textContent = formatNumberCLP(totalAdeudadoFiltrado);
+
+            // Renderizar el gráfico de antigüedad
+            renderizarGraficoAntiguedad([montoVigente, monto130, monto3160, monto6190, montoMas90]);
         }
         
         // Llamada inicial para renderizar los datos
